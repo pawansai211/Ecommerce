@@ -10,6 +10,15 @@ git clone https://github.com/pawansai211/Ecommerce
 1. Postman or ThunderClient(your favorite API testor)
 2. IDE that supports node.js
 3. MongoDB on Atlas
+4. Node.js
+
+After cloning the repository
+```bash
+cd Backend
+
+then run
+```bash
+npm install
 
 ## Routes
 1. http://localhost:3000/api/v1/products (Methods, GET, PUT, POST, DELETE)
