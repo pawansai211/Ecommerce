@@ -20,6 +20,10 @@ then run
 ```bash
 npm install
 
+to start the server run
+```bash
+npm start
+
 ## Routes
 1. http://localhost:3000/api/v1/products (Methods, GET, PUT, POST, DELETE)
 2. http://localhost:3000/api/v1/categories (Methods, GET, PUT, POST, DELETE)
