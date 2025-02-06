@@ -5,6 +5,7 @@ To clone the Ecommerce repository, run the following command in your terminal:
 
 ```bash
 git clone https://github.com/pawansai211/Ecommerce
+```
 
 ## Prerequistes
 1. Postman or ThunderClient(your favorite API testor)
@@ -15,14 +16,17 @@ git clone https://github.com/pawansai211/Ecommerce
 After cloning the repository
 ```bash
 cd Backend
+```
 
 then run
 ```bash
 npm install
+```
 
 to start the server run
 ```bash
 npm start
+```
 
 ## Routes
 1. http://localhost:3000/api/v1/products (Methods, GET, PUT, POST, DELETE)
