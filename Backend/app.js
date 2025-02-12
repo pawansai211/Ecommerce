@@ -6,6 +6,8 @@ const app = express();
 const cors = require('cors');
 const authJwt = require('./helpers/jwt');
 const errorHandler = require('./helpers/error-handler');
+require('dotenv').config();
+
 
 app.use(cors());
 app.options('*', cors());
@@ -15,9 +17,9 @@ app.use(bodyParser.json());
 app.use(morgan('tiny')); // used to log api requests to the console
 app.use(authJwt()); // used to authenticate the user
 app.use(errorHandler);
+app.use('/public/uploads', express.static(__dirname + '/public/uploads'));
 
 
-require('dotenv/config');
 
 const api = process.env.API_URL;
 
@@ -25,10 +27,12 @@ const api = process.env.API_URL;
 const categoriesRoutes = require('./routers/categories');
 const productsRoutes = require('./routers/products');
 const usersRoutes = require('./routers/users');
+const ordersRoutes = require('./routers/orders');
 
 app.use(`${api}/categories`, categoriesRoutes);
 app.use(`${api}/products`, productsRoutes);
 app.use(`${api}/users`, usersRoutes);
+app.use(`${api}/orders`, ordersRoutes);
 
 mongoose.connect(process.env.CONNECTION_STRING)
 .then(() => {
