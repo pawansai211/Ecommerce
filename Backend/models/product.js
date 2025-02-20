@@ -55,6 +55,13 @@ const productSchema = mongoose.Schema({
         type: Date,
         default: Date.now,
     },
+    embedding: { 
+        type: [Number], 
+        default: [] 
+    }, // Stores OpenAI-generated embedding vector
+    recommendations: [{ 
+        type: mongoose.Schema.Types.ObjectId, ref: 'Product' 
+    }] // Stores recommended product IDs
 })
 
 productSchema.virtual('id').get(function () {
