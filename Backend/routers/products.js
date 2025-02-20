@@ -1,9 +1,15 @@
 const {Product} = require('../models/product');
 const express = require('express');
 const { Category } = require('../models/category');
+const OpenAI = require('openai');
 const router = express.Router();
 const mongoose = require('mongoose');
 const multer = require('multer');
+
+
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+
+
 
 // mime type
 const FILE_TYPE_MAP = {
@@ -61,22 +67,29 @@ router.get(`/:id`, async (req, res) =>{
 // uploading products
 router.post(`/`, uploadOptions.single('image'), async (req, res) => {
     console.log('Route hit, starting product creation process');
- 
+    
     try {
         const category = await Category.findById(req.body.category);
         if (!category) {
             console.log('Invalid Category');
             return res.status(400).send('Invalid Category');
         }
- 
+        
         const file = req.file;
         if (!file) {
             console.log('No image in the request');
             return res.status(400).send('No image in the request');
         }
- 
+        
         const fileName = file.filename;
         const basePath = `${req.protocol}://${req.get('host')}/public/uploads/`;
+        
+        const embeddingResponse = await openai.embeddings.create({ model: 'text-embedding-ada-002', input: `${req.body.name} ${req.body.description} ${category.name}` });
+        const embedding = embeddingResponse.data[0].embedding;
+        if (!embedding) {
+            return res.status(500).send('Failed to generate product embedding');
+        }
+        
         let product = new Product({
             name: req.body.name,
             description: req.body.description,
@@ -89,25 +102,26 @@ router.post(`/`, uploadOptions.single('image'), async (req, res) => {
             rating: req.body.rating,
             numReviews: req.body.numReviews,
             isFeatured: req.body.isFeatured,
+            embedding: embedding,
+            recommendations: []
         });
- 
-        console.log('Saving product');
+        
+        
         product = await product.save();
         console.log('Product saved');
- 
+        
         if (!product) {
             console.log('Product cannot be created');
             return res.status(500).send('The product cannot be created');
         }
- 
+        
         console.log('Product created successfully');
         res.send(product);
     } catch (error) {
         console.error('Error in creating product:', error);
         res.status(500).send('An internal server error occurred');
     }
- });
- 
+});
 
 
 // updating product information
@@ -155,7 +169,7 @@ router.delete('/:id', (req, res)=>{
     })
 })
 
-// returns the number of products
+// returns the number of products for admins only
 router.get(`/get/count`, async (req, res) => {
     try {
         const productCount = await Product.countDocuments();  // No callback needed
@@ -183,7 +197,7 @@ router.get(`/get/featured/:count`, async (req, res) =>{
     res.send(products);
 })
 
-// uploading multiple images
+// uploading multiple images for admins
 router.put(
     '/gallery-images/:id', 
     uploadOptions.array('images', 10), 
