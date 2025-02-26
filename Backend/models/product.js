@@ -57,12 +57,14 @@ const productSchema = mongoose.Schema({
     },
     embedding: { 
         type: [Number], 
-        default: [] 
+        default: Array(1536).fill(0),
+        index: 'vector' // This enables MongoDB Atlas Vector Search
     }, // Stores OpenAI-generated embedding vector
-    recommendations: [{ 
-        type: mongoose.Schema.Types.ObjectId, ref: 'Product' 
-    }] // Stores recommended product IDs
+    // recommendations: [{ 
+    //     type: mongoose.Schema.Types.ObjectId, ref: 'Product' 
+    // }] // Stores recommended product IDs
 })
+productSchema.index({ embedding: '2dsphere' }); // Ensure indexing for vector search
 
 productSchema.virtual('id').get(function () {
     return this._id.toHexString(); // convert object id to string
