@@ -1,13 +1,9 @@
 const {Product} = require('../models/product');
 const express = require('express');
 const { Category } = require('../models/category');
-const OpenAI = require('openai');
 const router = express.Router();
 const mongoose = require('mongoose');
 const multer = require('multer');
-
-
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 
 
@@ -66,7 +62,6 @@ router.get(`/:id`, async (req, res) =>{
 
 // uploading products
 router.post(`/`, uploadOptions.single('image'), async (req, res) => {
-    console.log('Route hit, starting product creation process');
     
     try {
         const category = await Category.findById(req.body.category);
@@ -82,14 +77,9 @@ router.post(`/`, uploadOptions.single('image'), async (req, res) => {
         }
         
         const fileName = file.filename;
-        const basePath = `${req.protocol}://${req.get('host')}/public/uploads/`;
+        const basePath = `${req.protocol}://${req.get('host')}/public/uploads/`;        
         
-        const embeddingResponse = await openai.embeddings.create({ model: 'text-embedding-ada-002', input: `${req.body.name} ${req.body.description} ${category.name}` });
-        const embedding = embeddingResponse.data[0].embedding;
-        if (!embedding) {
-            return res.status(500).send('Failed to generate product embedding');
-        }
-        
+        let embedding = [];
         let product = new Product({
             name: req.body.name,
             description: req.body.description,
@@ -102,8 +92,7 @@ router.post(`/`, uploadOptions.single('image'), async (req, res) => {
             rating: req.body.rating,
             numReviews: req.body.numReviews,
             isFeatured: req.body.isFeatured,
-            embedding: embedding,
-            recommendations: []
+            embedding: Array(1536).fill(0)
         });
         
         
