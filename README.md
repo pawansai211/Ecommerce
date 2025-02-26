@@ -33,3 +33,4 @@ npm start
 2. http://localhost:3000/api/v1/categories (Methods, GET, PUT, POST, DELETE)
 3. http://localhost:3000/api/v1/users (Methods, GET, PUT, POST, DELETE)
 4. http://localhost:3000/api/v1/orders (Methods, GET, PUT, POST, DELETE)
+5. http://localhost:3000/api/v1/reccommendations/chatbot (Methods, POST)
