@@ -1,157 +1,185 @@
 const express = require('express');
 const { Product } = require('../models/product');
-const OpenAI = require('openai');
 const { Order } = require('../models/order');
+const { Recommendation } = require('../models/recommendation');
+const OpenAI = require('openai');
+const mongoose = require('mongoose');
 const router = express.Router();
-const session = require('express-session');
-
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-
-// API Endpoint: Fetch personalized recommendations, this endpoint doesn't use chatbot only user history
-router.get('/', async (req, res) => {
+/**
+ * GET /recommendations/:customerId
+ * Fetch stored recommendations for a customer
+ */
+router.get('/:customerId', async (req, res) => {
     try {
-        const userId = req.user.id; 
+        const { customerId } = req.params;
 
-        // Fetch user's past orders
-        const userOrders = await Order.find({ user: userId });
-        if (userOrders.length === 0) {
-            // If no orders, return featured products
-            const featuredProducts = await Product.find({ isFeatured: true }).limit(10);
-            return res.json({ recommendations: featuredProducts, message: "No order history found, showing featured products." });
+        // Fetch recommendations from the database
+        const recommendation = await Recommendation.findOne({ user: customerId }).populate('recommendedProducts');
+
+        if (!recommendation || !recommendation.recommendedProducts.length) {
+            return res.status(404).json({ error: "No recommendations found for this customer." });
         }
 
-        // Get product IDs from past orders
-        const orderedProductIds = userOrders.flatMap(order => order.orderItems.map(item => item.product));
-
-        // Fetch the most recent ordered product
-        const lastOrderedProduct = await Product.findById(orderedProductIds[0]);
-
-        if (!lastOrderedProduct || !lastOrderedProduct.embedding.length) {
-            return res.status(500).json({ error: "No embeddings found for the last ordered product." });
-        }
-
-        // Use MongoDB Vector Search to find similar products
-        const recommendations = await Product.aggregate([
-            {
-                $vectorSearch: {
-                    index: "emmbeddings", 
-                    path: "embedding",
-                    queryVector: lastOrderedProduct.embedding,
-                    numCandidates: 100,
-                    limit: 10 // Get top 10 similar products
-                }
-            }
-        ]);
-
-        res.json({ recommendations });
+        res.json({
+            message: "Recommendations retrieved successfully.",
+            recommendations: recommendation.recommendedProducts.map(p => ({
+                id: p._id,
+                name: p.name,
+                description: p.description,
+                price: p.price,
+                image: p.image
+            }))
+        });
 
     } catch (error) {
-        console.error("Recommendation Error:", error);
+        console.error("Error retrieving recommendations:", error);
         res.status(500).json({ error: "Internal server error" });
     }
 });
 
-// used to store chats for followup questions
-router.use(session({
-    secret: 'recommendation_secret', 
-    resave: false,
-    saveUninitialized: true,
-    cookie: { secure: false } // Use `true` in production with HTTPS
-}));
-
+/**
+ * POST /chatbot
+ * Admin chatbot for generating and saving personalized recommendations
+ */
 router.post('/chatbot', async (req, res) => {
-    try {        
+    try {
 
-        const userQuery = req.body.query;
-        if (!userQuery) {
-            return res.status(400).json({ error: 'Query is required' });
+        // Ensure admin authentication
+        if (!req.user?.isAdmin) {
+            return res.status(403).json({ error: "Access denied. Admins only." });
         }
 
-        if (!req.user) {
-            return res.status(401).json({ error: "Unauthorized: User not found in request." });
+        const { query: userQuery, customerId } = req.body;
+        if (!userQuery || !customerId) {
+            return res.status(400).json({ error: "Both query and customerId are required." });
         }
 
-        const userId = req.user.id; // Ensure req.user exists before accessing id
-        console.log(`Authenticated User ID: ${userId}`);
+        console.log(`Admin ID: ${req.user.id} is requesting recommendations for Customer ID: ${customerId}`);
 
-
-        // Retrieve conversation history (if any)
-        const conversationHistory = req.session.conversation || { lastQuery: null, lastEmbedding: null };
-
-        // Generate embedding for the user query
-        const embeddingResponse = await openai.embeddings.create({
-            model: 'text-embedding-ada-002',
-            input: userQuery
+        // Retrieve all previous orders for the specified customer and populate orderItems -> product
+        const previousOrders = await Order.find({ user: customerId }).populate({
+            path: 'orderItems',
+            populate: { path: 'product', select: 'name embedding' } // Ensure product details are loaded
         });
-        const queryEmbedding = embeddingResponse.data[0].embedding;
 
-        if (!queryEmbedding) {
-            return res.status(500).json({ error: 'Failed to generate query embedding' });
+        if (!previousOrders.length) {
+            return res.status(404).json({ error: "No purchase history found for this customer." });
         }
 
-        let recommendations = [];
+        // Extract product IDs correctly from populated orderItems
+        const purchasedProducts = previousOrders.flatMap(order => 
+            order.orderItems.map(item => item.product?._id) // Ensure we're getting the product ID
+        ).filter(Boolean); // Remove any null or undefined values
 
-        // If this is a follow-up query, perform a new vector search using the latest query embedding
-        console.log(conversationHistory.lastQuery ? `Follow-up query detected: "${userQuery}"` : "New query detected.");
-        
-        // here we get recommendations based on user query embeddings and product embeddings from the db
-        recommendations = await Product.aggregate([
+        if (!purchasedProducts.length) {
+            return res.status(404).json({ error: "No purchased products found for this customer." });
+        }
+
+        // Retrieve embeddings of all previously purchased products
+        const pastEmbeddings = await Product.find(
+            { _id: { $in: purchasedProducts } }, 
+            { name: 1, embedding: 1 } // Fetch product name and embedding only
+        );
+
+        if (!pastEmbeddings.length) {
+            return res.status(500).json({ error: "No embeddings found for purchased products." });
+        }
+
+        console.log(`Found ${pastEmbeddings.length} embeddings from past purchases.`);
+
+        // Calculate the average embedding safely
+        const embeddingLength = pastEmbeddings[0]?.embedding?.length || 0;
+        if (!embeddingLength) {
+            return res.status(500).json({ error: "Invalid embeddings found." });
+        }
+
+        const averageEmbedding = pastEmbeddings.reduce((acc, curr) => {
+            return acc.map((val, i) => val + (curr.embedding?.[i] ?? 0));
+        }, new Array(embeddingLength).fill(0)).map(val => val / pastEmbeddings.length);
+
+        // Perform vector search for recommendations
+        const recommendations = await Product.aggregate([
             {
                 $vectorSearch: {
-                    index: "emmbeddings",
+                    index: "emmbeddings", // Fixed index name
                     path: "embedding",
-                    queryVector: queryEmbedding,
+                    queryVector: averageEmbedding,
                     numCandidates: 100,
-                    limit: 5
+                    limit: 10
+                }
+            },
+            {
+                $project: {
+                    _id: 1,
+                    name: 1,
+                    description: 1,
+                    price: 1,
+                    image: 1
                 }
             }
         ]);
 
-        // Store the latest embedding and query for the next follow-up
-        req.session.conversation = {
-            lastQuery: userQuery,
-            lastEmbedding: queryEmbedding
-        };
+        if (!recommendations.length) {
+            return res.status(404).json({ error: "No relevant recommendations found." });
+        }
+
+        // Save recommendations to the database
+        await Recommendation.findOneAndUpdate(
+            { user: customerId },
+            { user: customerId, recommendedProducts: recommendations.map(p => p._id) },
+            { upsert: true, new: true }
+        );
 
         // Format recommendations for ChatGPT
-        const productDescriptions = recommendations.map((p, index) => 
-            `${index + 1}. ${p.name} - ${p.description}`
+        const productDescriptions = recommendations.map((p, index) =>
+            `${index + 1}. ${p.name} - ${p.description} (Price: $${p.price})`
         ).join('\n');
 
-        // Generate a more natural chat prompt based on previous interactions
-        let chatPrompt;
-        if (conversationHistory.lastQuery) {
-            chatPrompt = `The user previously asked: "${conversationHistory.lastQuery}" and I recommended some products.
-            Now, they are asking: "${userQuery}". Based on their previous query and the new one, here are the best product recommendations:
-            ${productDescriptions}
-            
-            Respond in a friendly way, considering the previous context.`;
-        } else {
-            chatPrompt = `A user asked: "${userQuery}". Based on their query, I recommend:
-            ${productDescriptions}
-            
-            Provide a friendly response suggesting these products.`;
-        }
+        // Strict ChatGPT prompt ensuring only database recommendations are used
+        const chatPrompt = `You are an AI assistant for an e-commerce admin.
+        The admin asked: "${userQuery}" regarding a customer's past purchases.
+
+        Based on the customer's purchase history, here are the recommended products:
+
+        ${productDescriptions}
+
+        These products have been selected using a vector-based similarity search, 
+        ensuring relevance to the customer's past interests.
+
+        Please respond by listing these recommendations in a natural language format, 
+        as if you were making a personalized suggestion. Ensure you include the product name, description, and price for each recommendation. DO NOT invent new recommendations beyond this list.`;
 
         // Get ChatGPT response
         const chatResponse = await openai.chat.completions.create({
             model: 'gpt-4',
             messages: [
-                { role: 'system', content: 'You are a helpful product recommendation assistant. Personalize responses based on past orders and follow-up queries.' },
+                { role: 'system', content: 'You are an AI assistant for an e-commerce admin. Only recommend products from the given list.' },
                 { role: 'user', content: chatPrompt }
             ]
         });
 
         const chatReply = chatResponse.choices[0].message.content;
 
-        res.json({ response: chatReply, recommendations });
+        // Return structured response
+        res.json({
+            message: chatReply,
+            recommendations: recommendations.map((p) => ({
+                id: p._id,
+                name: p.name,
+                description: p.description,
+                price: p.price,
+                image: p.image
+            }))
+        });
 
     } catch (error) {
-        console.error('Chatbot Error:', error);
-        res.status(500).json({ error: 'Internal server error' });
+        console.error("Chatbot Error:", error);
+        res.status(500).json({ error: "Internal server error" });
     }
 });
+
 
 module.exports = router;
