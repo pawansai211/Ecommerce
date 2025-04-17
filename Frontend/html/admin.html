@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Panel</title>
+    <link rel="stylesheet" href="../css/admin.css">
+</head>
+<body>
+    <div id="dashboard"></div>
+    <h3>AI-Powered Recommendations</h3>
+    <form id="chatbot-form">
+        <select id="user-list" required>
+            <option value="">Select a User</option>
+        </select>
+        <textarea id="chatbot-query" placeholder="Enter prompt..." required></textarea>
+        <button type="submit">Get Recommendations</button>
+    </form>
+
+    <h4>Chatbot Response</h4>
+    <div id="chatbot-response"></div>
+
+
+    <h3>Manage Categories</h3>
+        <form id="category-form">
+            <input type="text" id="category-name" placeholder="Category Name" required>
+            <input type="text" id="category-icon" placeholder="Icon URL">
+            <input type="text" id="category-color" placeholder="Color Code">
+            <button type="submit">Add Category</button>
+        </form>
+
+        
+
+        <!-- Product Management -->
+        <h3>Manage Products</h3>
+        <form id="product-form">
+            <input type="text" id="name" placeholder="Product Name" required>
+            <textarea id="description" placeholder="Description" required></textarea>
+            <textarea id="richDescription" placeholder="Rich Description"></textarea>
+            <input type="text" id="brand" placeholder="Brand" required>
+            <input type="number" id="price" placeholder="Price" required>
+            <select id="product-category" required>
+                <option value="">Select Category</option>
+            </select>
+            <input type="number" id="countInStock" placeholder="Stock Count" required>
+            <input type="file" id="image">
+            <input type="file" id="images" multiple>
+            <label><input type="checkbox" id="isFeatured"> Featured</label>
+            <button type="submit">Save Product</button>
+        </form>
+
+        <h3>Existing Products</h3>
+        <div id="product-list"></div>
+    </div>
+
+    <script src="../js/admin.js"></script>
+    <script>
+        fetch('dashboard.html')
+            .then(response => response.text())
+            .then(data => {
+                document.getElementById('dashboard').innerHTML = data;
+                const script = document.createElement('script');
+                script.src = '../js/dashboard.js';
+                document.body.appendChild(script);
+            });
+        
+    </script>
+    <link rel="stylesheet" href="../css/dashboard.css">
+</body>
+</html>

@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>cart</title>
+    <link rel="stylesheet" href="../css/cart.css">
+</head>
+<body>
+    <div id="dashboard"></div>
+    <div class="container">
+        <h2>Shopping Cart</h2>
+        <div id="cart-items"></div>
+        <button id="place-order">Place Order</button>
+        <p id="message"></p>
+    </div>
+
+    <script src="../js/cart.js"></script>
+    <script src="../js/signup.js"></script>
+    <script>
+        fetch('dashboard.html')
+            .then(response => response.text())
+            .then(data => {
+                document.getElementById('dashboard').innerHTML = data;
+                const script = document.createElement('script');
+                script.src = '../js/dashboard.js';
+                document.body.appendChild(script);
+            });
+    </script>
+    <link rel="stylesheet" href="../css/dashboard.css">
+</body>
+</html>
