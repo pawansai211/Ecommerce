@@ -16,7 +16,7 @@ router.get('/:customerId', async (req, res) => {
     try {
         const { customerId } = req.params;
 
-        // Fetch recommendations from the database
+        // Retrieve recommendations without requiring authentication
         const recommendation = await Recommendation.findOne({ user: customerId }).populate('recommendedProducts');
 
         if (!recommendation || !recommendation.recommendedProducts.length) {
@@ -39,6 +39,7 @@ router.get('/:customerId', async (req, res) => {
         res.status(500).json({ error: "Internal server error" });
     }
 });
+
 
 /**
  * POST /chatbot
@@ -104,7 +105,7 @@ router.post('/chatbot', async (req, res) => {
         const recommendations = await Product.aggregate([
             {
                 $vectorSearch: {
-                    index: "emmbeddings", // Fixed index name
+                    index: "emmbeddings",
                     path: "embedding",
                     queryVector: averageEmbedding,
                     numCandidates: 100,
