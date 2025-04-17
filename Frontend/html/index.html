@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <link rel="stylesheet" href="../css/index.css">
+</head>
+<body>
+    <div id="dashboard"></div>
+
+    <h2>Recommended for You</h2>
+    <div id="recommendations" class="product-grid"></div>
+
+
+    <div class="container">
+        <h1>Our Products</h1>
+        <div id="product-list" class="product-grid"></div>
+    </div>
+
+    <script src="../js/index.js"></script>
+    <script src="../js/signup.js"></script>
+    <script>
+        fetch('dashboard.html')
+            .then(response => response.text())
+            .then(data => {
+                document.getElementById('dashboard').innerHTML = data;
+                const script = document.createElement('script');
+                script.src = '../js/dashboard.js';
+                document.body.appendChild(script);
+            });
+    </script>
+    <link rel="stylesheet" href="../css/dashboard.css">
+</body>
+</html>
