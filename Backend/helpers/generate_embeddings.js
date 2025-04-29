@@ -21,7 +21,9 @@ async function generateEmbeddingsForProducts() {
 
         console.log('Connected to MongoDB');
 
-        const products = await Product.find({ "embedding.0": 0 }).limit(50);
+        const FORCE_REGEN = true;
+        const products = await Product.find(FORCE_REGEN ? {} : { "embedding.0": 0 }).limit(50);
+
 
         if (products.length === 0) {
             console.log('No products without embeddings found.');
@@ -32,7 +34,8 @@ async function generateEmbeddingsForProducts() {
 
         for (let product of products) {
             try {
-                const text = `${product.name} ${product.description}`;
+                const text = `Name: ${product.name}, Description: ${product.description}, Category: ${product.category}, Brand: ${product.brand}`;
+
                 const response = await openai.embeddings.create({ model: 'text-embedding-ada-002', input: text });
                 const embedding = response.data[0].embedding;
 
