@@ -4,8 +4,6 @@ const { Order } = require('../models/order');
 const { Recommendation } = require('../models/recommendation');
 
 const { Category } = require('../models/category');
-
-console.log('Category type:', typeof Category);
 const OpenAI = require('openai');
 const mongoose = require('mongoose');
 const router = express.Router();
@@ -92,8 +90,7 @@ router.post('/chatbot', async (req, res) => {
       const averageEmbedding = pastEmbeddings.reduce((acc, curr) => {
         return acc.map((val, i) => val + (curr.embedding?.[i] ?? 0));
       }, new Array(embeddingLength).fill(0)).map(val => val / pastEmbeddings.length);
-      console.log("Average Embedding:", averageEmbedding.slice(0, 10));
-    console.log("Embedding Length:", averageEmbedding.length);
+      
 
       // 🔍 Step 1: Extract filter/category from admin prompt using OpenAI
       const filterExtractionPrompt = `
