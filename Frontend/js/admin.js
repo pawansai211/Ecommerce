@@ -225,6 +225,37 @@ document.addEventListener('DOMContentLoaded', async () => {
             console.error('Error loading product for editing:', error);
         }
     }
+    document.getElementById('category-form').addEventListener('submit', async function (event) {
+        event.preventDefault();
+    
+        const categoryData = {
+            name: document.getElementById('category-name').value,
+            icon: document.getElementById('category-icon').value,
+            color: document.getElementById('category-color').value
+        };
+    
+        try {
+            const response = await fetch(categoryApiUrl, {
+                method: 'POST',
+                headers: {
+                    "Authorization": `Bearer ${localStorage.getItem("token")}`,
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify(categoryData)
+            });
+    
+            if (!response.ok) {
+                throw new Error('Failed to create category.');
+            }
+    
+            alert('Category created successfully!');
+            document.getElementById('category-form').reset();
+            loadCategories(); // Refresh dropdown
+    
+        } catch (error) {
+            console.error('Category Creation Error:', error.message);
+        }
+    });
 
     loadCategories();
     loadProducts();
